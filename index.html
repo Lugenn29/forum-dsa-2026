@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA 2026 | Defence Forum System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .defence-font { font-family: 'Orbitron', sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); border: 1px solid #1e293b; }
+        .hidden { display: none; }
+        .input-style { background: #0f172a; border: 1px solid #334155; padding: 0.75rem; border-radius: 0.5rem; width: 100%; outline: none; color: white; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div id="landingView" class="min-h-screen flex flex-col items-center justify-center p-6">
+        <h1 class="defence-font text-3xl font-bold mb-2 text-sky-500 text-center uppercase">Forum DSA 2026</h1>
+        <p class="text-slate-500 mb-10 text-xs tracking-widest uppercase font-bold text-center">AI & Cyber Security Vanguard</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+            <div onclick="showLogin('admin')" class="glass p-8 rounded-2xl text-center cursor-pointer hover:border-sky-500 transition">
+                <span class="text-3xl">🛡️</span><h3 class="defence-font mt-4">ADMIN</h3>
+            </div>
+            <div onclick="showLogin('moderator')" class="glass p-8 rounded-2xl text-center cursor-pointer hover:border-sky-500 transition border-emerald-500/50">
+                <span class="text-3xl">📡</span><h3 class="defence-font mt-4">MODERATOR</h3>
+            </div>
+            <div onclick="showSignup()" class="glass p-8 rounded-2xl text-center cursor-pointer hover:border-sky-500 transition border-sky-500/50">
+                <span class="text-3xl">📝</span><h3 class="defence-font mt-4">AUDIENCE</h3>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginSection" class="hidden min-h-screen flex items-center justify-center p-6">
+        <div class="glass max-w-md w-full p-8 rounded-2xl border-t-4 border-sky-500">
+            <h2 id="loginTitle" class="defence-font text-xl text-center mb-6"></h2>
+            <input type="email" id="emailInput" class="input-style mb-4" placeholder="Email Address">
+            <input type="password" id="passInput" class="input-style mb-4" placeholder="Password">
+            <button onclick="performLogin()" class="w-full bg-sky-600 py-3 rounded-lg font-bold hover:bg-sky-500 transition">AUTHORIZE</button>
+            <button onclick="goHome()" class="w-full mt-4 text-xs text-slate-400 hover:text-white uppercase tracking-widest">← Back to Home</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden min-h-screen">
+        <nav class="glass p-4 border-b border-sky-900 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button onclick="goHome()" class="text-slate-400 hover:text-sky-400 text-sm font-bold">← BACK</button>
+                <span class="defence-font text-sky-500 font-bold" id="dashTitle"></span>
+            </div>
+            <button onclick="location.reload()" class="bg-red-950 text-red-400 px-4 py-1 rounded-full text-xs hover:bg-red-800 transition">LOGOUT</button>
+        </nav>
+
+        <div class="p-6">
+            <div id="modArea" class="hidden max-w-md mx-auto">
+                <div class="glass rounded-2xl overflow-hidden p-4">
+                    <div id="reader" style="width: 100%; border-radius: 12px; overflow: hidden; background: black;"></div>
+                    <div id="scanResult" class="mt-6 p-4 rounded-xl text-center font-bold">
+                        Point camera at Ticket QR
+                    </div>
+                </div>
+            </div>
+
+            <div id="adminArea" class="hidden max-w-4xl mx-auto">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="glass p-4 rounded-xl text-center"><p class="text-xs text-slate-500">REGISTRANTS</p><p id="countTotal" class="text-2xl font-bold">0</p></div>
+                    <div class="glass p-4 rounded-xl text-center border-b-2 border-emerald-500"><p class="text-xs text-slate-500">PRESENT</p><p id="countIn" class="text-2xl font-bold text-emerald-400">0</p></div>
+                </div>
+                <div class="glass rounded-xl overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900"><tr><th class="p-4">NAME</th><th class="p-4">EMAIL</th><th class="p-4">STATUS</th></tr></thead>
+                        <tbody id="dbBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="audArea" class="hidden max-w-md mx-auto">
+                <div id="signupBox" class="glass p-6 rounded-2xl">
+                    <input type="text" id="audName" class="input-style mb-4" placeholder="Full Name">
+                    <input type="email" id="audEmail" class="input-style mb-4" placeholder="Email Address">
+                    <button onclick="audRegister()" class="w-full bg-sky-600 py-3 rounded-lg font-bold hover:bg-sky-500 transition">REGISTER FOR FORUM</button>
+                </div>
+                <div id="ticket" class="hidden glass p-8 rounded-2xl text-center border-2 border-sky-500">
+                    <div id="qrSpot" class="bg-white p-2 inline-block rounded mb-4"></div>
+                    <h3 id="ticketName" class="defence-font text-lg text-white uppercase"></h3>
+                    <p class="text-sky-400 text-[10px] font-bold mt-2 uppercase">Verified Defence Forum Pass</p>
+                    
+                    <div class="mt-6 pt-6 border-t border-slate-800">
+                        <button onclick="downloadForumPDF()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold transition">
+                            📥 DOWNLOAD FORUM INFO (PDF)
+                        </button>
+                    </div>
+
+                    <button onclick="goHome()" class="mt-6 text-xs text-slate-400 underline uppercase tracking-widest block mx-auto hover:text-white">Back to Main Menu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let attendees = JSON.parse(localStorage.getItem('dsa_database')) || [];
+        let currentMode = '';
+        let html5QrCode;
+
+        function saveToStorage() {
+            localStorage.setItem('dsa_database', JSON.stringify(attendees));
+        }
+
+        function goHome() {
+            if (html5QrCode && html5QrCode.getState() === 2) { 
+                html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => console.error(err));
+            }
+            document.querySelectorAll('#loginSection, #dashboard, #adminArea, #modArea, #audArea').forEach(el => el.classList.add('hidden'));
+            document.getElementById('landingView').classList.remove('hidden');
+        }
+
+        function showLogin(mode) {
+            currentMode = mode;
+            document.getElementById('landingView').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('loginTitle').innerText = mode.toUpperCase() + " LOGIN";
+        }
+
+        function showSignup() {
+            document.getElementById('landingView').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('audArea').classList.remove('hidden');
+            document.getElementById('signupBox').classList.remove('hidden');
+            document.getElementById('ticket').classList.add('hidden');
+            document.getElementById('dashTitle').innerText = "AUDIENCE PORTAL";
+        }
+
+        function performLogin() {
+            const email = document.getElementById('emailInput').value.toLowerCase();
+            const pass = document.getElementById('passInput').value;
+
+            if (currentMode === 'admin' && email === 'admin1@gmail.com' && pass === 'Abcd1234') {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('adminArea').classList.remove('hidden');
+                document.getElementById('dashTitle').innerText = "ADMIN COMMAND CENTER";
+                updateAdminTable();
+            } else if (currentMode === 'moderator' && email === 'moderator1@gmail.com' && pass === '1234Abcd') {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('modArea').classList.remove('hidden');
+                document.getElementById('dashTitle').innerText = "SCANNER TERMINAL";
+                startScanner();
+            } else { alert("Invalid Credentials"); }
+        }
+
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => processScan(text));
+        }
+
+        function processScan(scannedEmail) {
+            attendees = JSON.parse(localStorage.getItem('dsa_database')) || [];
+            const user = attendees.find(a => a.email.toLowerCase() === scannedEmail.toLowerCase());
+            const resDiv = document.getElementById('scanResult');
+            if (user) {
+                user.status = 'Present';
+                saveToStorage();
+                resDiv.innerText = "ACCESS GRANTED: " + user.name.toUpperCase();
+                resDiv.className = "mt-6 p-4 rounded-xl text-center font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-500";
+            } else {
+                resDiv.innerText = "ACCESS DENIED: UNKNOWN";
+                resDiv.className = "mt-6 p-4 rounded-xl text-center font-bold bg-red-900/50 text-red-300 border border-red-500";
+            }
+        }
+
+        function audRegister() {
+            const name = document.getElementById('audName').value;
+            const email = document.getElementById('audEmail').value;
+            if(!name || !email) return alert("Fill all fields");
+            if(attendees.some(a => a.email.toLowerCase() === email.toLowerCase())) return alert("Already registered");
+
+            attendees.push({ name, email, status: 'Registered' });
+            saveToStorage();
+            document.getElementById('signupBox').classList.add('hidden');
+            document.getElementById('ticket').classList.remove('hidden');
+            document.getElementById('ticketName').innerText = name;
+            document.getElementById('qrSpot').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(email)}">`;
+        }
+
+        function updateAdminTable() {
+            const body = document.getElementById('dbBody');
+            body.innerHTML = '';
+            let presentCount = 0;
+            attendees = JSON.parse(localStorage.getItem('dsa_database')) || [];
+            attendees.forEach(a => {
+                if(a.status === 'Present') presentCount++;
+                body.innerHTML += `<tr class="border-b border-slate-800"><td class="p-4 font-bold uppercase">${a.name}</td><td class="p-4">${a.email}</td><td class="p-4">${a.status}</td></tr>`;
+            });
+            document.getElementById('countTotal').innerText = attendees.length;
+            document.getElementById('countIn').innerText = presentCount;
+        }
+
+        // GENERATE PDF FROM DOCUMENT INFO
+        function downloadForumPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Header Section
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("Forum DSA 2026", 105, 20, null, null, "center");
+            
+            doc.setFontSize(12);
+            doc.text("AI and Cyber Security as the Vanguard of Digital Defence", 105, 30, null, null, "center");
+            
+            // Details Section
+            doc.setFont("helvetica", "normal");
+            doc.text("Date: 23 April 2026 (Thursday)", 20, 45);
+            doc.text("Venue: Ballroom 2, Level 3, MITEC, Kuala Lumpur", 20, 52);
+            doc.text("Organizer: FSTP, UPNM", 20, 59);
+
+            // Panelists
+            doc.setFont("helvetica", "bold");
+            doc.text("Moderator:", 20, 75);
+            doc.setFont("helvetica", "normal");
+            doc.text("- Kol Prof. Dr. Khairol Amali Bin Ahmad (B)", 25, 82);
+
+            doc.setFont("helvetica", "bold");
+            doc.text("Key Panelists:", 20, 95);
+            doc.setFont("helvetica", "normal");
+            doc.text("1. Dato' Seri Dr. Ahmad Jailani bin Muhamed Yunus (SPA)", 25, 102);
+            doc.text("2. Laksamana Muda Dato' Fadhil bin Abdul Rahman (BSEP)", 25, 109);
+            doc.text("3. Dato' Nonee Ashirin binti Dato' Mohd Radzi (CDIM)", 25, 116);
+            doc.text("4. Prof. Ts. Dr. Noor Afiza binti Mat Razali (UPNM)", 25, 123);
+
+            // Program
+            doc.setFont("helvetica", "bold");
+            doc.text("Program Highlights:", 20, 140);
+            doc.setFont("helvetica", "normal");
+            doc.text("09:30 AM - Registration", 25, 147);
+            doc.text("10:00 AM - Welcome Speech (UPNM Vice Chancellor)", 25, 154);
+            doc.text("10:25 AM - Keynote Address (Minister of Defence)", 25, 161);
+            doc.text("10:50 AM - Forum Session Starts", 25, 168);
+
+            doc.save("DSA_2026_Forum_Information.pdf");
+        }
+    </script>
+</body>
+</html>
