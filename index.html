@@ -104,17 +104,39 @@
         let attendees = JSON.parse(localStorage.getItem('dsa_database')) || [];
         let currentMode = '';
         let html5QrCode;
+        let isScanning = false;
+        let lastScanned = "";
 
         function saveToStorage() {
             localStorage.setItem('dsa_database', JSON.stringify(attendees));
         }
 
+        // Improved Go Home logic to safely unmount the camera
         function goHome() {
-            if (html5QrCode && html5QrCode.getState() === 2) { 
-                html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => console.error(err));
+            if (html5QrCode && isScanning) { 
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                    isScanning = false;
+                    resetUI();
+                }).catch(err => {
+                    console.error("Failed to stop scanner:", err);
+                    resetUI();
+                });
+            } else {
+                resetUI();
             }
+        }
+
+        function resetUI() {
             document.querySelectorAll('#loginSection, #dashboard, #adminArea, #modArea, #audArea').forEach(el => el.classList.add('hidden'));
             document.getElementById('landingView').classList.remove('hidden');
+            
+            // Reset scan result UI
+            const resDiv = document.getElementById('scanResult');
+            if (resDiv) {
+                resDiv.innerText = "Point camera at Ticket QR";
+                resDiv.className = "mt-6 p-4 rounded-xl text-center font-bold";
+            }
         }
 
         function showLogin(mode) {
@@ -152,22 +174,43 @@
             } else { alert("Invalid Credentials"); }
         }
 
+        // Improved Scanner Initialization
         function startScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (text) => processScan(text));
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } }, 
+                (decodedText) => processScan(decodedText),
+                (errorMessage) => { /* Silently ignore frame errors to prevent console spam */ }
+            ).then(() => {
+                isScanning = true;
+            }).catch(err => {
+                alert("Camera access denied or unavailable. Please check permissions.");
+                console.error(err);
+            });
         }
 
+        // Added Cooldown to allow continuous scanning without freezing
         function processScan(scannedEmail) {
+            if (scannedEmail === lastScanned) return; // Prevent spamming the same QR
+            
+            lastScanned = scannedEmail;
+            setTimeout(() => { lastScanned = ""; }, 3000); // 3-second cooldown before the SAME code can be scanned again
+
             attendees = JSON.parse(localStorage.getItem('dsa_database')) || [];
             const user = attendees.find(a => a.email.toLowerCase() === scannedEmail.toLowerCase());
             const resDiv = document.getElementById('scanResult');
+            
             if (user) {
                 user.status = 'Present';
                 saveToStorage();
                 resDiv.innerText = "ACCESS GRANTED: " + user.name.toUpperCase();
                 resDiv.className = "mt-6 p-4 rounded-xl text-center font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-500";
             } else {
-                resDiv.innerText = "ACCESS DENIED: UNKNOWN";
+                resDiv.innerText = "ACCESS DENIED: UNKNOWN QR";
                 resDiv.className = "mt-6 p-4 rounded-xl text-center font-bold bg-red-900/50 text-red-300 border border-red-500";
             }
         }
@@ -183,6 +226,8 @@
             document.getElementById('signupBox').classList.add('hidden');
             document.getElementById('ticket').classList.remove('hidden');
             document.getElementById('ticketName').innerText = name;
+            
+            // Note: This API generates static images, they do not expire.
             document.getElementById('qrSpot').innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(email)}">`;
         }
 
@@ -193,7 +238,9 @@
             attendees = JSON.parse(localStorage.getItem('dsa_database')) || [];
             attendees.forEach(a => {
                 if(a.status === 'Present') presentCount++;
-                body.innerHTML += `<tr class="border-b border-slate-800"><td class="p-4 font-bold uppercase">${a.name}</td><td class="p-4">${a.email}</td><td class="p-4">${a.status}</td></tr>`;
+                // Dynamic styling based on status
+                const statusColor = a.status === 'Present' ? 'text-emerald-400' : 'text-slate-400';
+                body.innerHTML += `<tr class="border-b border-slate-800"><td class="p-4 font-bold uppercase">${a.name}</td><td class="p-4">${a.email}</td><td class="p-4 font-bold ${statusColor}">${a.status}</td></tr>`;
             });
             document.getElementById('countTotal').innerText = attendees.length;
             document.getElementById('countIn').innerText = presentCount;
@@ -204,7 +251,6 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
-            // Header Section
             doc.setFontSize(18);
             doc.setFont("helvetica", "bold");
             doc.text("Forum DSA 2026", 105, 20, null, null, "center");
@@ -212,13 +258,11 @@
             doc.setFontSize(12);
             doc.text("AI and Cyber Security as the Vanguard of Digital Defence", 105, 30, null, null, "center");
             
-            // Details Section
             doc.setFont("helvetica", "normal");
             doc.text("Date: 23 April 2026 (Thursday)", 20, 45);
             doc.text("Venue: Ballroom 2, Level 3, MITEC, Kuala Lumpur", 20, 52);
             doc.text("Organizer: FSTP, UPNM", 20, 59);
 
-            // Panelists
             doc.setFont("helvetica", "bold");
             doc.text("Moderator:", 20, 75);
             doc.setFont("helvetica", "normal");
@@ -232,7 +276,6 @@
             doc.text("3. Dato' Nonee Ashirin binti Dato' Mohd Radzi (CDIM)", 25, 116);
             doc.text("4. Prof. Ts. Dr. Noor Afiza binti Mat Razali (UPNM)", 25, 123);
 
-            // Program
             doc.setFont("helvetica", "bold");
             doc.text("Program Highlights:", 20, 140);
             doc.setFont("helvetica", "normal");
