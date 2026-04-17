@@ -174,22 +174,51 @@
             } else { alert("Invalid Credentials"); }
         }
 
-        // Improved Scanner Initialization
+        // Upgraded Scanner Initialization for Cross-Device Compatibility
         function startScanner() {
             if (!html5QrCode) {
                 html5QrCode = new Html5Qrcode("reader");
             }
             
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                { fps: 10, qrbox: { width: 250, height: 250 } }, 
-                (decodedText) => processScan(decodedText),
-                (errorMessage) => { /* Silently ignore frame errors to prevent console spam */ }
-            ).then(() => {
-                isScanning = true;
+            // 1. Make the scan box responsive to avoid overflow errors on small mobile screens
+            const screenWidth = window.innerWidth;
+            const qrboxSize = screenWidth < 400 ? 200 : 250;
+            const config = { fps: 10, qrbox: { width: qrboxSize, height: qrboxSize } };
+
+            // 2. Query available cameras
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length > 0) {
+                    
+                    // First Attempt: Try to force the rear camera (Best for Mobile)
+                    html5QrCode.start(
+                        { facingMode: "environment" }, 
+                        config, 
+                        (decodedText) => processScan(decodedText),
+                        (errorMessage) => { /* Silently ignore frame errors to prevent console spam */ }
+                    ).then(() => {
+                        isScanning = true;
+                    }).catch((err) => {
+                        console.warn("Rear camera not found or denied, falling back to default camera...");
+                        
+                        // Second Attempt: Fallback to the first available camera (Best for Desktop Webcams)
+                        html5QrCode.start(
+                            devices[0].id, 
+                            config, 
+                            (decodedText) => processScan(decodedText),
+                            (errorMessage) => { /* Silently ignore frame errors */ }
+                        ).then(() => {
+                            isScanning = true;
+                        }).catch(fallbackErr => {
+                            alert("Camera access denied or unavailable. Please check permissions.");
+                            console.error("Fallback camera failed:", fallbackErr);
+                        });
+                    });
+                } else {
+                    alert("No cameras detected on this device.");
+                }
             }).catch(err => {
-                alert("Camera access denied or unavailable. Please check permissions.");
-                console.error(err);
+                alert("Camera permission denied. Please allow access in your browser settings.");
+                console.error("Camera fetch error:", err);
             });
         }
 
